@@ -2,7 +2,8 @@
 
 import { useFrame } from "@/components/providers/farcaster-provider";
 import { SafeAreaContainer } from "@/components/providers/safe-area-container";
-import LoadingPage from "./ui/LoadingPage";
+import LoadingPage from "./common/LoadingPage";
+import Page from "./ui/page";
 
 export default function Home() {
   const { context, isLoading, isSDKLoaded } = useFrame();
@@ -31,7 +32,9 @@ export default function Home() {
 
   return (
     <SafeAreaContainer insets={context?.client.safeAreaInsets}>
-      <div className="bg-slate-950  pb-20"></div>
+      <div className="bg-slate-950 ">
+        <Page />
+      </div>
     </SafeAreaContainer>
   );
 }

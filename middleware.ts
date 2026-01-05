@@ -63,10 +63,5 @@ export async function middleware(request: NextRequest) {
 
 // middleware  route matcher
 export const config = {
-  matcher: [
-    "/api/auth/signature/:path*",
-    "/api/signature/:path*",
-    "/api/ai/create-thumbnail",
-    "/api/ai/create-cast",
-  ], // PROTECT all /api/auth/* routes
+  matcher: ["/api/signature/:path*"], // PROTECT all /api/auth/* routes
 };

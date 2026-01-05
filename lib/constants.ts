@@ -1,12 +1,3 @@
-import {
-  AwardIcon,
-  CheckCircle,
-  MessageSquare,
-  Sparkles,
-  TrendingUp,
-  Zap,
-} from "lucide-react";
-
 export const MESSAGE_EXPIRATION_TIME = 1000 * 60 * 60 * 24 * 30; // 30 day
 
 export const APP_URL = process.env.NEXT_PUBLIC_URL;
@@ -15,7 +6,7 @@ if (!APP_URL) {
   throw new Error("NEXT_PUBLIC_URL or NEXT_PUBLIC_VERCEL_URL is not set");
 }
 
-export const APP_NAME = "Farstate Ai";
+export const APP_NAME = "Farcrement";
 export const APP_DESCRIPTION =
   "Farstate Ai helps you track your Farcaster engagement metrics, wallet information, and generate cast with Ai, with detailed analytics and insights.";
 export const APP_OG_IMAGE_URL = `${APP_URL}/feed.png`;
@@ -39,45 +30,6 @@ export const APP_ACCOUNT_ASSOCIATION = {
   signature:
     "TAFouFoy5C5A5APwUo+lvqNqvNj/RuSC9DCZ2eeFAwZgbQwABnOPl9+WcoYE4Z0PvC0ycFEJxYQQdidCGZwL5hw=",
 };
-
-export const castCategories = [
-  {
-    id: 1,
-    name: "Tech News",
-    icon: Zap,
-    color: "border-purple-600",
-  },
-  {
-    id: 2,
-    name: "Crypto Updates",
-    icon: TrendingUp,
-    color: "border-purple-600",
-  },
-  {
-    id: 3,
-    name: "Motivational",
-    icon: AwardIcon,
-    color: "border-purple-600",
-  },
-  {
-    id: 4,
-    name: "Community",
-    icon: MessageSquare,
-    color: "border-purple-600",
-  },
-  {
-    id: 5,
-    name: "Meme",
-    icon: Sparkles,
-    color: "border-purple-600",
-  },
-  {
-    id: 6,
-    name: "Question",
-    icon: CheckCircle,
-    color: "border-purple-600",
-  },
-];
 
 export const notificationsBtn = [
   {
@@ -111,24 +63,3 @@ export const notificationsBtn = [
     body: "Keep your streak going strong, check-in now⚡!",
   },
 ];
-
-import { defineChain } from "viem";
-
-export const Monad = defineChain({
-  id: 143,
-  name: "Monad",
-  nativeCurrency: {
-    decimals: 18,
-    name: "Monad",
-    symbol: "MON",
-  },
-  rpcUrls: {
-    default: {
-      http: ["https://rpc.monad.xyz"],
-      webSocket: ["wss://rpc.monad.xyz"],
-    },
-  },
-  blockExplorers: {
-    default: { name: "Explorer", url: "https://monadscan.com" },
-  },
-});

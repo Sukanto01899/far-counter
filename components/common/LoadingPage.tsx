@@ -1,9 +1,5 @@
-
-
 const LoadingPage = () => {
-  return (
-   
-  );
+  return <></>;
 };
 
 export default LoadingPage;
