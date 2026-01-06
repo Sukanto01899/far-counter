@@ -8,6 +8,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Base Farcaster MiniApp Template",
   description: "A template for building mini-apps on Farcaster and Base",
+  other: {
+    "base:app_id": "69158175669aee60603bdd70",
+  },
 };
 const config = {
   rpcUrl: "https://base-rpc.publicnode.com",
