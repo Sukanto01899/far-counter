@@ -1,12 +1,12 @@
 "use client";
 
 import { Button } from "@/components/common/Button";
+import Modal from "@/components/common/Modal";
 import { useFrame } from "@/components/providers/farcaster-provider";
 import { counterAbi } from "@/lib/abi";
 import {
   COUNTER_CHAIN_ID,
   COUNTER_CONTRACT,
-  DEFAULT_REWARD_WEI,
   INCREMENT_API_PATH,
   REWARD_DECIMALS,
   REWARD_SYMBOL,
@@ -24,6 +24,9 @@ import {
 } from "wagmi";
 
 const contractAddress = COUNTER_CONTRACT;
+const DEV_FID = Number(process.env.NEXT_PUBLIC_DEV_FID || "0");
+const DEV_PROFILE_URL =
+  process.env.NEXT_PUBLIC_DEV_PROFILE_URL || "https://warpcast.com/";
 
 const formatCooldown = (seconds: number) => {
   if (seconds <= 0) return "Ready now";
@@ -38,7 +41,7 @@ const formatCooldown = (seconds: number) => {
 };
 
 export default function Page() {
-  const { context, haptics } = useFrame();
+  const { context, haptics, quickAuth, actions } = useFrame();
   const fid = context?.user?.fid;
 
   const { address, isConnected } = useAccount();
@@ -46,11 +49,47 @@ export default function Page() {
   const { switchChainAsync } = useSwitchChain();
   const activeChainId = useChainId();
 
+  const friendlyError = (err: unknown) => {
+    const message =
+      err instanceof Error ? err.message : typeof err === "string" ? err : "";
+    if (!message) return "Something went wrong. Please try again.";
+    const lower = message.toLowerCase();
+    if (lower.includes("user rejected") || lower.includes("user denied")) {
+      return "You cancelled the request. Tap again when you're ready.";
+    }
+    if (lower.includes("insufficient funds")) {
+      return "Not enough balance to cover gas on Base. Top up and retry.";
+    }
+    if (lower.includes("chain") && lower.includes("mismatch")) {
+      return "Wrong network. Switching to Base should fix it.";
+    }
+    if (lower.includes("signature") && lower.includes("expired")) {
+      return "Signature expired. Tap increment again to refresh.";
+    }
+    return message;
+  };
+
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
-  const [lastSignatureReward, setLastSignatureReward] =
-    useState<bigint>(DEFAULT_REWARD_WEI);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [showFollow, setShowFollow] = useState(false);
+
+  const handleFollowDev = async () => {
+    localStorage.setItem("follow-dev-dismissed", "true");
+    setShowFollow(false);
+    try {
+      if (DEV_FID > 0 && actions?.viewProfile) {
+        await actions.viewProfile({ fid: DEV_FID });
+        return;
+      }
+    } catch (err) {
+      console.error("viewProfile failed", err);
+    }
+    if (typeof window !== "undefined" && DEV_PROFILE_URL) {
+      window.open(DEV_PROFILE_URL, "_blank");
+    }
+  };
 
   const totalQuery = useReadContract({
     abi: counterAbi,
@@ -67,6 +106,14 @@ export default function Page() {
     args: fid ? [BigInt(fid)] : undefined,
     chainId: COUNTER_CHAIN_ID,
     query: { enabled: Boolean(contractAddress && fid) },
+  });
+
+  const rewardQuery = useReadContract({
+    abi: counterAbi,
+    address: contractAddress,
+    functionName: "rewardPerTap",
+    chainId: COUNTER_CHAIN_ID,
+    query: { enabled: Boolean(contractAddress) },
   });
 
   const { writeContractAsync, isPending: isWriting } = useWriteContract();
@@ -96,23 +143,36 @@ export default function Page() {
     return Math.max(0, Math.min(1, 1 - cooldownSeconds / COOLDOWN_SECONDS));
   }, [availableAt, cooldownSeconds, COOLDOWN_SECONDS]);
 
-  const rewardDisplay = useMemo(
-    () => formatUnits(lastSignatureReward, REWARD_DECIMALS),
-    [lastSignatureReward]
-  );
+  const rewardPerTap = (rewardQuery.data as bigint | undefined) ?? BigInt(0);
+  const rewardDisplay = useMemo(() => {
+    if (rewardPerTap > BigInt(0)) {
+      return formatUnits(rewardPerTap, REWARD_DECIMALS);
+    }
+    return "0";
+  }, [rewardPerTap]);
 
   useEffect(() => {
     if (isConfirmed) {
       totalQuery.refetch?.();
       userQuery.refetch?.();
       setStatus("Increment confirmed onchain");
+      setShowSuccess(true);
       haptics?.notificationOccurred?.("success");
     }
-  }, [isConfirmed, totalQuery, userQuery, haptics]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConfirmed]);
+
+  useEffect(() => {
+    const alreadyFollowed = localStorage.getItem("follow-dev-dismissed");
+    if (!alreadyFollowed) {
+      setShowFollow(true);
+    }
+  }, []);
 
   const handleIncrement = async () => {
     setError(null);
     setStatus(null);
+    setShowSuccess(false);
 
     if (!contractAddress) {
       setError("Set NEXT_PUBLIC_COUNTER_CONTRACT to your deployed contract.");
@@ -124,7 +184,22 @@ export default function Page() {
       return;
     }
 
+    if (!quickAuth || typeof quickAuth.getToken !== "function") {
+      setError("Auth unavailable. Please reopen in Farcaster.");
+      return;
+    }
+
     try {
+      const token =
+        quickAuth.token ??
+        (await quickAuth.getToken({ force: "false" })).token ??
+        null;
+      if (!token) {
+        setError("Auth token missing. Please try again.");
+        return;
+      }
+      // Use plain fetch with explicit auth header to avoid unbound method issues.
+
       let userAddress = address;
 
       if (!isConnected) {
@@ -149,6 +224,7 @@ export default function Page() {
       if (activeChainId !== COUNTER_CHAIN_ID) {
         setStatus("Switching to Base...");
         await switchChainAsync({ chainId: COUNTER_CHAIN_ID });
+        setStatus("Switched to Base");
       }
 
       setStatus("Fetching server signature...");
@@ -156,6 +232,7 @@ export default function Page() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          authorization: `Bearer ${token}`,
           "x-fid": fid.toString(),
         },
         body: JSON.stringify({
@@ -166,6 +243,7 @@ export default function Page() {
       });
 
       const signatureJson = await signatureRes.json();
+      console.log(signatureJson);
       if (!signatureRes.ok || !signatureJson.signature) {
         throw new Error(signatureJson.error || "Failed to fetch signature");
       }
@@ -175,10 +253,7 @@ export default function Page() {
         fid: BigInt(fid),
         nonce: BigInt(signatureJson.nonce),
         deadline: BigInt(signatureJson.deadline),
-        reward: BigInt(signatureJson.reward),
       };
-
-      setLastSignatureReward(requestStruct.reward);
 
       setStatus("Sending transaction...");
       const hash = await writeContractAsync({
@@ -193,9 +268,7 @@ export default function Page() {
       setStatus("Waiting for confirmation...");
     } catch (err) {
       console.error(err);
-      const message =
-        err instanceof Error ? err.message : "Failed to submit increment";
-      setError(message);
+      setError(friendlyError(err));
       setStatus(null);
     }
   };
@@ -217,16 +290,105 @@ export default function Page() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(80,120,255,0.12),transparent_35%)]" />
 
       <div className="relative mx-auto flex max-w-screen-sm flex-col gap-4 sm:gap-5">
+        {showFollow && (
+          <Modal>
+            <div className="w-full max-w-sm rounded-2xl border border-blue-500/40 bg-slate-900/90 p-5 text-white shadow-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full bg-blue-400 animate-pulse" />
+                  <p className="text-xs uppercase tracking-wide text-blue-100">
+                    Welcome
+                  </p>
+                </div>
+                <button
+                  className="text-slate-300 hover:text-white text-sm"
+                  onClick={() => {
+                    localStorage.setItem("follow-dev-dismissed", "true");
+                    setShowFollow(false);
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+              <div className="mt-3 space-y-3">
+                <h2 className="text-xl font-bold">Follow the dev</h2>
+                <p className="text-sm text-slate-300">
+                  Stay updated on new drops and tweaks. One tap and this won’t
+                  show again.
+                </p>
+                <button
+                  onClick={handleFollowDev}
+                  className="block w-full rounded-xl bg-blue-600 hover:bg-blue-500 py-3 text-center text-sm font-semibold shadow-lg shadow-blue-700/40"
+                >
+                  Follow dev on Warpcast
+                </button>
+              </div>
+            </div>
+          </Modal>
+        )}
+        {showSuccess && (
+          <Modal>
+            <div className="w-full max-w-sm rounded-2xl border border-blue-500/40 bg-slate-900/90 p-5 text-white shadow-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full bg-emerald-400 animate-pulse" />
+                  <p className="text-xs uppercase tracking-wide text-emerald-200">
+                    Success
+                  </p>
+                </div>
+                <button
+                  className="text-slate-300 hover:text-white text-sm"
+                  onClick={() => setShowSuccess(false)}
+                >
+                  Close
+                </button>
+              </div>
+              <div className="mt-3 space-y-2">
+                <h2 className="text-xl font-bold">
+                  You got {rewardDisplay} {REWARD_SYMBOL}
+                </h2>
+                <p className="text-sm text-slate-300">
+                  Come back after 6 hours to tap again. Keep the streak alive!
+                </p>
+                {txHash && (
+                  <a
+                    href={`https://basescan.org/tx/${txHash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-blue-200 underline"
+                  >
+                    View on BaseScan
+                  </a>
+                )}
+                <Button
+                  onClick={() => setShowSuccess(false)}
+                  className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 py-3 text-sm font-semibold"
+                >
+                  Got it
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
         <div className="rounded-2xl border border-blue-500/30 bg-white/5 p-4 sm:p-4 shadow-2xl backdrop-blur-md">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div className="space-y-1">
               <h1 className="text-2xl sm:text-3xl font-extrabold leading-tight tracking-tight">
-                Far Arcade
+                Farcrement
               </h1>
               <p className="text-sm text-slate-200/80 leading-relaxed">
-                Tap to level up your fid, snag tokens, and flex your onchain
+                Tap to level up your streak, snag tokens, and flex your onchain
                 streak.
               </p>
+            </div>
+            <div className="flex w-full items-center justify-between sm:w-auto sm:flex-col sm:items-end sm:gap-2">
+              <div className="text-[11px] uppercase tracking-wide text-slate-300">
+                Loot per tap
+              </div>
+              <div className="rounded-xl bg-blue-500/20 px-3 py-2 text-sm font-semibold text-blue-100 shadow-inner shadow-blue-500/30">
+                {rewardDisplay} {REWARD_SYMBOL}
+              </div>
+              <div className="text-[11px] text-slate-400">Chain: Base</div>
             </div>
           </div>
 

@@ -8,13 +8,13 @@ if (!APP_URL) {
 
 export const APP_NAME = "Farcrement";
 export const APP_DESCRIPTION =
-  "Farstate Ai helps you track your Farcaster engagement metrics, wallet information, and generate cast with Ai, with detailed analytics and insights.";
+  "Farcrement helps you track your Farcaster engagement metrics, wallet information, and generate cast with Ai, with detailed analytics and insights.";
 export const APP_OG_IMAGE_URL = `${APP_URL}/feed.png`;
 export const APP_BUTTON_TEXT = "Check State";
 export const APP_SPLASH_URL = `${APP_URL}/splash.png`;
 export const APP_ICON_URL = `${APP_URL}/icon.png`;
 export const APP_SPLASH_BACKGROUND_COLOR = "#cb6ce6";
-export const APP_PRIMARY_CATEGORY = "social";
+export const APP_PRIMARY_CATEGORY = "games";
 export const APP_TAGS = [
   "neynar",
   "farcaster",

@@ -18,19 +18,18 @@ contract FarCounter is EIP712, Ownable {
         uint256 fid;
         uint256 nonce;
         uint256 deadline;
-        uint256 reward;
     }
 
     bytes32 public constant INCREMENT_TYPEHASH =
         keccak256(
-            "Increment(address user,uint256 fid,uint256 nonce,uint256 deadline,uint256 reward)"
+            "Increment(address user,uint256 fid,uint256 nonce,uint256 deadline)"
         );
 
     uint256 public constant COOLDOWN = 6 hours;
 
     address public signer;
     address public immutable rewardToken;
-
+    uint256 public rewardPerTap;
     uint256 public totalIncrements;
 
     mapping(uint256 => uint256) public userIncrements; // fid => count
@@ -48,19 +47,30 @@ contract FarCounter is EIP712, Ownable {
 
     event SignerUpdated(address indexed newSigner);
 
-    constructor(address initialSigner, address rewardToken_)
-        EIP712("FarCounter", "1")
-    {
+    constructor(
+        address initialOwner,
+        address initialSigner,
+        address rewardToken_,
+        uint256 rewardPerTap_
+    ) EIP712("FarCounter", "1") Ownable(initialOwner) {
+        require(initialOwner != address(0), "Owner cannot be zero");
         require(initialSigner != address(0), "Signer cannot be zero");
         require(rewardToken_ != address(0), "Reward token required");
+        require(rewardPerTap_ > 0, "Reward cannot be zero");
         signer = initialSigner;
         rewardToken = rewardToken_;
+        rewardPerTap = rewardPerTap_;
     }
 
     function setSigner(address newSigner) external onlyOwner {
         require(newSigner != address(0), "Signer cannot be zero");
         signer = newSigner;
         emit SignerUpdated(newSigner);
+    }
+
+    function setRewardPerTap(uint256 newReward) external onlyOwner {
+        require(newReward > 0, "Reward cannot be zero");
+        rewardPerTap = newReward;
     }
 
     function increment(IncrementRequest calldata req, bytes calldata signature)
@@ -83,8 +93,7 @@ contract FarCounter is EIP712, Ownable {
                     req.user,
                     req.fid,
                     req.nonce,
-                    req.deadline,
-                    req.reward
+                    req.deadline
                 )
             )
         );
@@ -100,15 +109,16 @@ contract FarCounter is EIP712, Ownable {
             userIncrements[req.fid] += 1;
         }
 
-        if (req.reward > 0) {
-            IERC20(rewardToken).safeTransfer(req.user, req.reward);
+        uint256 reward = rewardPerTap;
+        if (reward > 0) {
+            IERC20(rewardToken).safeTransfer(req.user, reward);
         }
 
         emit Incremented(
             req.user,
             req.fid,
             req.nonce,
-            req.reward,
+            reward,
             totalIncrements,
             userIncrements[req.fid]
         );

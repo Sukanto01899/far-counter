@@ -4,9 +4,16 @@ import { useFrame } from "@/components/providers/farcaster-provider";
 import { SafeAreaContainer } from "@/components/providers/safe-area-container";
 import LoadingPage from "./common/LoadingPage";
 import Page from "./ui/page";
+import { useEffect } from "react";
 
 export default function Home() {
-  const { context, isLoading, isSDKLoaded } = useFrame();
+  const { context, isLoading, isSDKLoaded, actions } = useFrame();
+
+  useEffect(() => {
+    if (actions) {
+      actions?.addMiniApp();
+    }
+  }, [actions]);
 
   if (isLoading) {
     return (

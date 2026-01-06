@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { privateKeyToAccount } from "viem/accounts";
 
-const DEFAULT_REWARD_WEI = BigInt(
-  process.env.INCREMENT_REWARD_WEI || "100000000000000" // 0.0001 tokens (decimals depend on token)
-);
 const DEFAULT_CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID || "8453");
 
 export async function POST(request: NextRequest) {
@@ -43,7 +40,6 @@ export async function POST(request: NextRequest) {
           { name: "fid", type: "uint256" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "reward", type: "uint256" },
         ],
       },
       primaryType: "Increment",
@@ -52,16 +48,16 @@ export async function POST(request: NextRequest) {
         fid: BigInt(fid),
         nonce,
         deadline,
-        reward: DEFAULT_REWARD_WEI,
       },
     });
+
+    console.log(signature);
 
     return NextResponse.json(
       {
         fid,
         nonce: nonce.toString(),
         deadline: deadline.toString(),
-        reward: DEFAULT_REWARD_WEI.toString(),
         signature,
         chainId: DEFAULT_CHAIN_ID,
         isSuccess: true,

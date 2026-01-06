@@ -2,8 +2,10 @@ export const counterAbi = [
   {
     type: "constructor",
     inputs: [
+      { name: "initialOwner", type: "address", internalType: "address" },
       { name: "initialSigner", type: "address", internalType: "address" },
       { name: "rewardToken_", type: "address", internalType: "address" },
+      { name: "rewardPerTap_", type: "uint256", internalType: "uint256" },
     ],
     stateMutability: "nonpayable",
   },
@@ -18,12 +20,7 @@ export const counterAbi = [
       { name: "fid", type: "uint256", indexed: true, internalType: "uint256" },
       { name: "nonce", type: "uint256", indexed: false, internalType: "uint256" },
       { name: "reward", type: "uint256", indexed: false, internalType: "uint256" },
-      {
-        name: "totalIncrements",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
+      { name: "totalIncrements", type: "uint256", indexed: false, internalType: "uint256" },
       { name: "userTotal", type: "uint256", indexed: false, internalType: "uint256" },
     ],
   },
@@ -74,7 +71,6 @@ export const counterAbi = [
           { name: "fid", type: "uint256", internalType: "uint256" },
           { name: "nonce", type: "uint256", internalType: "uint256" },
           { name: "deadline", type: "uint256", internalType: "uint256" },
-          { name: "reward", type: "uint256", internalType: "uint256" },
         ],
       },
       { name: "signature", type: "bytes", internalType: "bytes" },
@@ -130,10 +126,24 @@ export const counterAbi = [
   },
   {
     type: "function",
+    name: "rewardPerTap",
+    stateMutability: "view",
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    inputs: [],
+  },
+  {
+    type: "function",
     name: "rewardToken",
     stateMutability: "view",
     outputs: [{ name: "", type: "address", internalType: "address" }],
     inputs: [],
+  },
+  {
+    type: "function",
+    name: "setRewardPerTap",
+    stateMutability: "nonpayable",
+    outputs: [],
+    inputs: [{ name: "newReward", type: "uint256", internalType: "uint256" }],
   },
   {
     type: "function",

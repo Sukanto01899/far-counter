@@ -6,10 +6,10 @@ const frame = {
   version: "next",
   imageUrl: `${APP_URL}/feed.png`,
   button: {
-    title: "Check State",
+    title: "Tap Now",
     action: {
       type: "launch_frame",
-      name: "Farstate Ai",
+      name: "Farcrement",
       url: APP_URL,
       splashImageUrl: `${APP_URL}/splash.png`,
       splashBackgroundColor: APP_SPLASH_BACKGROUND_COLOR || "#1E90FF",
@@ -19,10 +19,10 @@ const frame = {
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: "Farstate Ai",
+    title: "Farcrement",
     openGraph: {
-      title: "Farstate Ai Farcaster Activity Checker",
-      description: "A base ecosystem mini game for check status and earn!",
+      title: "Tap to level up your streak with Farcrement!",
+      description: "A base ecosystem mini game for Farcasters.",
     },
     other: {
       "fc:frame": JSON.stringify(frame),
