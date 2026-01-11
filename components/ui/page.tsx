@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Button } from "@/components/common/Button";
 import Modal from "@/components/common/Modal";
@@ -27,18 +27,6 @@ const contractAddress = COUNTER_CONTRACT;
 const DEV_FID = Number(process.env.NEXT_PUBLIC_DEV_FID || "0");
 const DEV_PROFILE_URL =
   process.env.NEXT_PUBLIC_DEV_PROFILE_URL || "https://warpcast.com/";
-
-const formatCooldown = (seconds: number) => {
-  if (seconds <= 0) return "Ready now";
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-  const parts: string[] = [];
-  if (hours) parts.push(`${hours}h`);
-  if (minutes) parts.push(`${minutes}m`);
-  parts.push(`${secs}s`);
-  return parts.join(" ");
-};
 
 export default function Page() {
   const { context, haptics, quickAuth, actions } = useFrame();
@@ -74,6 +62,7 @@ export default function Page() {
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
   const [showSuccess, setShowSuccess] = useState(false);
   const [showFollow, setShowFollow] = useState(false);
+  const [isActionLoading, setIsActionLoading] = useState(false);
 
   const handleFollowDev = async () => {
     localStorage.setItem("follow-dev-dismissed", "true");
@@ -126,10 +115,7 @@ export default function Page() {
 
   const totalIncrements = (totalQuery.data as bigint | undefined) ?? BigInt(0);
   const userData = userQuery.data as [bigint, bigint] | undefined;
-  const userTotal = userData?.[0] ?? BigInt(0);
   const availableAt = userData?.[1] ?? BigInt(0);
-
-  const COOLDOWN_SECONDS = 6 * 60 * 60;
 
   const cooldownSeconds = useMemo(() => {
     const nowSeconds = Math.floor(Date.now() / 1000);
@@ -138,11 +124,6 @@ export default function Page() {
     return Math.max(0, availableSeconds - nowSeconds);
   }, [availableAt]);
 
-  const cooldownProgress = useMemo(() => {
-    if (!availableAt || cooldownSeconds <= 0) return 1;
-    return Math.max(0, Math.min(1, 1 - cooldownSeconds / COOLDOWN_SECONDS));
-  }, [availableAt, cooldownSeconds, COOLDOWN_SECONDS]);
-
   const rewardPerTap = (rewardQuery.data as bigint | undefined) ?? BigInt(0);
   const rewardDisplay = useMemo(() => {
     if (rewardPerTap > BigInt(0)) {
@@ -150,6 +131,26 @@ export default function Page() {
     }
     return "0";
   }, [rewardPerTap]);
+
+  const formatDisplay = (value: string, digits: number) => {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return value;
+    return num.toFixed(digits);
+  };
+
+  const rewardDisplayFixed = useMemo(
+    () => formatDisplay(rewardDisplay, 4),
+    [rewardDisplay]
+  );
+
+  const totalRewardsDisplay = useMemo(() => {
+    if (rewardPerTap <= BigInt(0) || totalIncrements <= BigInt(0)) {
+      return "0.0000";
+    }
+    const totalRewards = rewardPerTap * totalIncrements;
+    const raw = formatUnits(totalRewards, REWARD_DECIMALS);
+    return formatDisplay(raw, 4);
+  }, [rewardPerTap, totalIncrements]);
 
   useEffect(() => {
     if (isConfirmed) {
@@ -189,6 +190,7 @@ export default function Page() {
       return;
     }
 
+    setIsActionLoading(true);
     try {
       const token =
         quickAuth.token ??
@@ -270,6 +272,8 @@ export default function Page() {
       console.error(err);
       setError(friendlyError(err));
       setStatus(null);
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
@@ -277,19 +281,21 @@ export default function Page() {
     isConnecting ||
     isWriting ||
     isConfirming ||
-    status === "Waiting for confirmation...";
+    status === "Waiting for confirmation..." ||
+    isActionLoading;
 
   const disableIncrement =
     cooldownSeconds > 0 || !contractAddress || !fid || isProcessing;
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-[#0c1229] via-[#0b0f1f] to-[#070911] text-white px-3 py-6 sm:py-8">
-      <div className="pointer-events-none absolute -left-10 -top-10 h-52 w-52 rounded-full bg-blue-600/30 blur-3xl" />
-      <div className="pointer-events-none absolute right-0 top-20 h-44 w-44 rounded-full bg-purple-600/25 blur-3xl" />
-      <div className="pointer-events-none absolute bottom-0 left-1/2 h-40 w-64 -translate-x-1/2 rounded-full bg-cyan-500/20 blur-3xl" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(80,120,255,0.12),transparent_35%)]" />
+    <div className="relative h-screen w-full overflow-hidden bg-gradient-to-b from-[#0a0f22] via-[#070a17] to-[#05070f] text-white">
+      <div className="pointer-events-none absolute -left-16 -top-16 h-56 w-56 rounded-full bg-cyan-500/25 blur-3xl" />
+      <div className="pointer-events-none absolute right-[-10%] top-24 h-48 w-48 rounded-full bg-blue-600/20 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 left-1/2 h-44 w-72 -translate-x-1/2 rounded-full bg-emerald-500/15 blur-3xl" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(70,130,255,0.18),transparent_40%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_70%,rgba(120,255,240,0.12),transparent_45%)]" />
 
-      <div className="relative mx-auto flex max-w-screen-sm flex-col gap-4 sm:gap-5">
+      <div className="relative flex h-full w-full flex-col">
         {showFollow && (
           <Modal>
             <div className="w-full max-w-sm rounded-2xl border border-blue-500/40 bg-slate-900/90 p-5 text-white shadow-2xl">
@@ -313,7 +319,7 @@ export default function Page() {
               <div className="mt-3 space-y-3">
                 <h2 className="text-xl font-bold">Follow the dev</h2>
                 <p className="text-sm text-slate-300">
-                  Stay updated on new drops and tweaks. One tap and this won’t
+                  Stay updated on new drops and tweaks. One tap and this won't
                   show again.
                 </p>
                 <button
@@ -370,100 +376,83 @@ export default function Page() {
             </div>
           </Modal>
         )}
-        <div className="rounded-2xl border border-blue-500/30 bg-white/5 p-4 sm:p-4 shadow-2xl backdrop-blur-md">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="space-y-1">
-              <h1 className="text-2xl sm:text-3xl font-extrabold leading-tight tracking-tight">
-                Farcrement
-              </h1>
-              <p className="text-sm text-slate-200/80 leading-relaxed">
-                Tap to level up your streak, snag tokens, and flex your onchain
-                streak.
-              </p>
-            </div>
-            <div className="flex w-full items-center justify-between sm:w-auto sm:flex-col sm:items-end sm:gap-2">
-              <div className="text-[11px] uppercase tracking-wide text-slate-300">
-                Loot per tap
-              </div>
-              <div className="rounded-xl bg-blue-500/20 px-3 py-2 text-sm font-semibold text-blue-100 shadow-inner shadow-blue-500/30">
-                {rewardDisplay} {REWARD_SYMBOL}
-              </div>
-              <div className="text-[11px] text-slate-400">Chain: Base</div>
-            </div>
-          </div>
 
-          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 shadow-inner shadow-blue-900/40">
-              <p className="text-xs uppercase tracking-wide text-slate-300/70">
-                Global taps
-              </p>
-              <p className="mt-1 text-3xl font-black drop-shadow-sm">
-                {totalIncrements.toString()}
-              </p>
-              <p className="text-[11px] text-slate-400">Total adventurers</p>
-            </div>
-            <div className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 shadow-inner shadow-blue-900/40">
-              <p className="text-xs uppercase tracking-wide text-slate-300/70">
-                Your taps
-              </p>
-              <p className="mt-1 text-3xl font-black text-emerald-200 drop-shadow-sm">
-                {userTotal.toString()}
-              </p>
-              <p className="text-[11px] text-slate-400">
-                Fid {fid ?? "?"} progress
-              </p>
-            </div>
-          </div>
+        <div className="relative flex h-full w-full flex-col justify-between border border-cyan-400/20 bg-gradient-to-b from-[#0b1226] via-[#0a1020] to-[#090e1a] px-6 py-8 shadow-[0_25px_60px_rgba(7,10,24,0.8)] backdrop-blur-xl">
+          <div className="pointer-events-none absolute inset-0 border border-cyan-500/10" />
+          <div className="pointer-events-none absolute left-6 top-20 h-2 w-2 rounded-sm bg-cyan-400/70 shadow-[0_0_12px_rgba(56,189,248,0.6)]" />
+          <div className="pointer-events-none absolute right-10 top-40 h-3 w-3 rounded-sm bg-cyan-500/60 shadow-[0_0_16px_rgba(56,189,248,0.6)]" />
+          <div className="pointer-events-none absolute left-12 bottom-36 h-2.5 w-2.5 rounded-sm bg-emerald-400/70 shadow-[0_0_12px_rgba(52,211,153,0.5)]" />
+          <div className="pointer-events-none absolute right-14 bottom-44 h-2 w-2 rounded-full bg-cyan-200/70 shadow-[0_0_10px_rgba(125,211,252,0.6)]" />
 
-          <div className="mt-4 rounded-2xl border border-white/5 bg-slate-900/50 p-4 shadow-inner shadow-blue-900/30">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-300/70">
-                  Cooldown bar
-                </p>
-                <p className="text-lg font-semibold">
-                  {formatCooldown(cooldownSeconds)}
-                </p>
-              </div>
-              {txHash ? (
-                <a
-                  className="text-xs text-blue-200 underline"
-                  href={`https://basescan.org/tx/${txHash}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  View last tx
-                </a>
-              ) : (
-                <span className="text-xs text-slate-400">No tx yet</span>
-              )}
-            </div>
-            <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-slate-800">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-indigo-400 via-blue-400 to-cyan-300 transition-all"
-                style={{ width: `${Math.round(cooldownProgress * 100)}%` }}
-              />
-            </div>
-            <p className="mt-1 text-[11px] text-slate-400">
-              {cooldownSeconds > 0
-                ? "Refuel in progress - grab a snack!"
-                : "Ready to smash the Increment button."}
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <p className="text-[11px] uppercase tracking-[0.35em] text-cyan-200/70">
+              Total user rewards claimed
             </p>
+            <div className="mt-3 flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full border border-cyan-400/30 bg-cyan-400/10 text-cyan-200 shadow-[0_0_20px_rgba(56,189,248,0.45)]">
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 256 256"
+                  className="h-5 w-5"
+                >
+                  <path
+                    fill="currentColor"
+                    d="M127.9 16 34.3 144.2l93.6 54.1 93.9-54.1L127.9 16zm0 182.4-93.6-54.1 93.6 139.7 93.8-139.7-93.8 54.1z"
+                  />
+                </svg>
+              </span>
+              <span className="text-4xl font-black tracking-tight text-white drop-shadow-sm">
+                {totalRewardsDisplay}
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                {REWARD_SYMBOL}
+              </span>
+            </div>
           </div>
 
-          <div className="mt-5 space-y-3">
+          <div className="relative mt-8 flex justify-center">
+            <div className="absolute -top-4 h-32 w-32 rounded-full bg-cyan-500/10 blur-2xl" />
+            <div className="flex h-36 w-36 items-center justify-center rounded-full border border-cyan-500/20 bg-gradient-to-b from-slate-900/60 to-slate-950/80 shadow-[inset_0_0_25px_rgba(14,116,144,0.3)]">
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 256 256"
+                className="h-20 w-20 text-cyan-300 drop-shadow-[0_0_20px_rgba(56,189,248,0.45)]"
+              >
+                <path
+                  fill="currentColor"
+                  d="M127.9 16 34.3 144.2l93.6 54.1 93.9-54.1L127.9 16zm0 182.4-93.6-54.1 93.6 139.7 93.8-139.7-93.8 54.1z"
+                />
+              </svg>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-center">
+            <div className="flex items-center gap-2 rounded-full border border-cyan-500/25 bg-slate-950/60 px-4 py-2 text-[10px] uppercase tracking-[0.3em] text-cyan-100/80 shadow-[inset_0_0_12px_rgba(56,189,248,0.2)]">
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-cyan-300/80" />
+                <span className="h-2 w-2 rounded-full bg-slate-400/70" />
+                <span className="h-2 w-2 rounded-full bg-cyan-200/70" />
+              </span>
+              Live rewards active
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-3">
             <Button
               onClick={handleIncrement}
               isLoading={isProcessing}
               disabled={disableIncrement}
-              className="w-full rounded-2xl bg-gradient-to-r from-indigo-500 via-blue-500 to-cyan-400 py-3.5 text-base font-extrabold shadow-lg shadow-blue-700/40 transition hover:scale-[1.02] hover:shadow-blue-400/50 hover:brightness-110 disabled:scale-100 disabled:opacity-60"
+              className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 via-emerald-400 to-emerald-500 py-3.5 text-base font-extrabold uppercase tracking-wide shadow-[0_16px_30px_rgba(16,185,129,0.35)] transition hover:scale-[1.01] hover:brightness-110 disabled:scale-100 disabled:opacity-60"
             >
-              {cooldownSeconds > 0
-                ? "Cooldown active"
-                : isProcessing
-                ? "Casting spell..."
-                : "Tap to Power Up"}
+              {isProcessing
+                ? "Claiming..."
+                : cooldownSeconds > 0
+                ? "Come back after 6h"
+                : `Claim ${rewardDisplayFixed} ${REWARD_SYMBOL}`}
             </Button>
+            <p className="text-[11px] uppercase tracking-[0.25em] text-slate-400 text-center">
+              Secure blockchain claim - 6h interval
+            </p>
             {!isConnected && (
               <p className="text-xs text-center text-slate-300/80">
                 We will auto-connect your Base miniapp wallet. No extra clicks.
